@@ -1,102 +1,74 @@
 -- ============================================================================
--- KARAOKE STUDIO - SUPABASE DATABASE SCHEMA
--- Hỗ trợ kiến trúc Decoupled GPU Worker (Google Colab / RunPod)
+-- AI VIDEO TRANSLATION STUDIO - SUPABASE DATABASE SCHEMA (V1)
 -- ============================================================================
 
--- 1. BẬT EXTENSIONS CẦN THIẾT
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- 2. BẢNG SONGS (Quản lý các bài hát)
-CREATE TABLE IF NOT EXISTS public.songs (
+-- 1. BẢNG PROJECTS
+CREATE TABLE IF NOT EXISTS public.projects (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    title TEXT NOT NULL DEFAULT 'Bài hát mới',
-    original_filename TEXT NOT NULL DEFAULT 'audio.mp3',
-    audio_path TEXT, -- Đường dẫn trong bucket audio-inputs
-    youtube_url TEXT,
-    duration NUMERIC,
-    status JSONB NOT NULL DEFAULT '{"separation": "pending", "transcription": "pending", "render": "pending"}'::jsonb,
+    -- user_id UUID REFERENCES auth.users(id), -- Bỏ qua RLS user_id cho MVP local/demo
+    name TEXT NOT NULL DEFAULT 'Untitled Video',
+    source_language TEXT DEFAULT 'auto',
+    target_language TEXT DEFAULT 'vi',
+    status TEXT NOT NULL DEFAULT 'DRAFT', -- DRAFT, PROCESSING, COMPLETED, FAILED
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
 
--- 3. BẢNG LYRICS (Quản lý lời bài hát và mốc thời gian từng từ)
-CREATE TABLE IF NOT EXISTS public.lyrics (
+-- 2. BẢNG MEDIA FILES
+CREATE TABLE IF NOT EXISTS public.media_files (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    song_id UUID NOT NULL REFERENCES public.songs(id) ON DELETE CASCADE,
-    title TEXT NOT NULL DEFAULT 'Bài hát',
-    version INTEGER NOT NULL DEFAULT 1,
-    canonical_text TEXT,
-    lines JSONB NOT NULL DEFAULT '[]'::jsonb,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
-    CONSTRAINT unique_song_lyrics UNIQUE (song_id)
+    project_id UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
+    file_name TEXT NOT NULL,
+    storage_path TEXT NOT NULL,
+    metadata JSONB DEFAULT '{}'::jsonb, -- {duration, width, height, fps, etc.}
+    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
 
--- 4. BẢNG JOBS (Hàng đợi tác vụ cho GPU Worker)
+-- 3. BẢNG JOBS
 CREATE TABLE IF NOT EXISTS public.jobs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    song_id UUID NOT NULL REFERENCES public.songs(id) ON DELETE CASCADE,
-    kind TEXT NOT NULL, -- 'process_all', 'separate', 'transcribe', 'align', 'export'
-    status TEXT NOT NULL DEFAULT 'queued', -- 'queued', 'processing', 'done', 'error'
-    progress NUMERIC NOT NULL DEFAULT 0, -- 0 -> 100
-    message TEXT DEFAULT 'Đang chờ GPU nhận việc...',
+    project_id UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
+    status TEXT NOT NULL DEFAULT 'QUEUED', -- QUEUED, PROCESSING, PAUSED, RETRYING, REVIEW_REQUIRED, COMPLETED, FAILED
     error TEXT,
-    payload JSONB NOT NULL DEFAULT '{}'::jsonb,
-    result JSONB DEFAULT '{}'::jsonb,
-    stage TEXT DEFAULT 'init',
-    checkpoint JSONB DEFAULT '{}'::jsonb,
-    retry_count INTEGER DEFAULT 0,
-    worker_id TEXT, -- ID của Colab hoặc RunPod instance
+    worker_id TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
 
--- 5. BẢNG SONG_STRUCTURES (Cấu trúc bài hát: Verse, Chorus, Hook, Repeats, Occurrences)
-CREATE TABLE IF NOT EXISTS public.song_structures (
-    song_id UUID PRIMARY KEY REFERENCES public.songs(id) ON DELETE CASCADE,
-    structure JSONB NOT NULL DEFAULT '{"sections": []}'::jsonb,
-    bpm NUMERIC,
-    detected_key TEXT,
+-- 4. BẢNG JOB STAGES
+CREATE TABLE IF NOT EXISTS public.job_stages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    job_id UUID NOT NULL REFERENCES public.jobs(id) ON DELETE CASCADE,
+    stage_name TEXT NOT NULL, -- UPLOAD, MEDIA_ANALYSIS, AUDIO_EXTRACTION, ASR, TRANSLATION, ALIGNMENT, SUBTITLE_GENERATION, RENDER
+    status TEXT NOT NULL DEFAULT 'PENDING', -- PENDING, PROCESSING, COMPLETED, FAILED
+    progress INT DEFAULT 0,
+    started_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
+    error TEXT,
+    retry_count INT DEFAULT 0,
+    output_data JSONB DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
 
--- 6. BẢNG REVIEW_ITEMS (Trung tâm kiểm duyệt các nghi vấn AI & bất đồng thuận)
-CREATE TABLE IF NOT EXISTS public.review_items (
+-- 5. BẢNG SUBTITLES
+CREATE TABLE IF NOT EXISTS public.subtitles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    song_id UUID NOT NULL REFERENCES public.songs(id) ON DELETE CASCADE,
-    line_id TEXT,
-    word_id TEXT,
-    timestamp NUMERIC,
-    reason TEXT NOT NULL,
-    source_text TEXT,
-    asr_text TEXT,
-    ai_interpretation TEXT,
-    confidence NUMERIC DEFAULT 0.5,
-    status TEXT NOT NULL DEFAULT 'pending', -- 'pending', 'resolved', 'ignored'
-    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+    project_id UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
+    start_time NUMERIC(10, 3) NOT NULL,
+    end_time NUMERIC(10, 3) NOT NULL,
+    original_text TEXT,
+    translated_text TEXT,
+    speaker TEXT,
+    status TEXT DEFAULT 'AUTO', -- AUTO, EDITED, APPROVED
+    confidence JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
 
--- 7. BẢNG REVIEW_HISTORY (Audit trail lịch sử can thiệp của con người)
-CREATE TABLE IF NOT EXISTS public.review_history (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    song_id UUID NOT NULL REFERENCES public.songs(id) ON DELETE CASCADE,
-    action TEXT NOT NULL,
-    target_id TEXT NOT NULL,
-    old_value JSONB,
-    new_value JSONB,
-    user_id TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
-);
-
--- 8. TẠO INDEX ĐỂ TRUY VẤN CỰC NHANH
-CREATE INDEX IF NOT EXISTS idx_jobs_queued ON public.jobs (status, created_at) WHERE status = 'queued';
-CREATE INDEX IF NOT EXISTS idx_lyrics_song_id ON public.lyrics (song_id);
-CREATE INDEX IF NOT EXISTS idx_songs_created_at ON public.songs (created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_review_items_song ON public.review_items (song_id, status);
-CREATE INDEX IF NOT EXISTS idx_review_history_song ON public.review_history (song_id, created_at DESC);
-
--- 9. TỰ ĐỘNG CẬP NHẬT updated_at QUA TRIGGER
+-- UPDATE TRIGGERS
 CREATE OR REPLACE FUNCTION public.handle_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -105,54 +77,47 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS tr_songs_updated_at ON public.songs;
-CREATE TRIGGER tr_songs_updated_at BEFORE UPDATE ON public.songs FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+DROP TRIGGER IF EXISTS tr_projects_updated_at ON public.projects;
+CREATE TRIGGER tr_projects_updated_at BEFORE UPDATE ON public.projects FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
 DROP TRIGGER IF EXISTS tr_jobs_updated_at ON public.jobs;
 CREATE TRIGGER tr_jobs_updated_at BEFORE UPDATE ON public.jobs FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
-DROP TRIGGER IF EXISTS tr_lyrics_updated_at ON public.lyrics;
-CREATE TRIGGER tr_lyrics_updated_at BEFORE UPDATE ON public.lyrics FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+DROP TRIGGER IF EXISTS tr_job_stages_updated_at ON public.job_stages;
+CREATE TRIGGER tr_job_stages_updated_at BEFORE UPDATE ON public.job_stages FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
-DROP TRIGGER IF EXISTS tr_song_structures_updated_at ON public.song_structures;
-CREATE TRIGGER tr_song_structures_updated_at BEFORE UPDATE ON public.song_structures FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+DROP TRIGGER IF EXISTS tr_subtitles_updated_at ON public.subtitles;
+CREATE TRIGGER tr_subtitles_updated_at BEFORE UPDATE ON public.subtitles FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
--- 10. KÍCH HOẠT SUPABASE REALTIME (Để Frontend nhận tiến độ live qua WebSocket)
-ALTER PUBLICATION supabase_realtime ADD TABLE public.jobs;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.lyrics;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.songs;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.song_structures;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.review_items;
+-- SUPABASE REALTIME
+-- Bỏ comment các dòng này trong lần chạy ĐẦU TIÊN nếu cần.
+-- Nếu bạn gặp lỗi "relation already member of publication", hãy bỏ qua vì nó đã được add.
+-- ALTER PUBLICATION supabase_realtime ADD TABLE public.projects;
+-- ALTER PUBLICATION supabase_realtime ADD TABLE public.jobs;
+-- ALTER PUBLICATION supabase_realtime ADD TABLE public.job_stages;
+-- ALTER PUBLICATION supabase_realtime ADD TABLE public.subtitles;
 
--- 11. THIẾT LẬP BẢO MẬT ROW LEVEL SECURITY (RLS)
-ALTER TABLE public.songs ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.lyrics ENABLE ROW LEVEL SECURITY;
+-- RLS (Public access cho MVP)
+ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.media_files ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.jobs ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.song_structures ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.review_items ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.review_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.job_stages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.subtitles ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "Public access songs" ON public.songs;
-CREATE POLICY "Public access songs" ON public.songs FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Public access projects" ON public.projects;
+CREATE POLICY "Public access projects" ON public.projects FOR ALL USING (true) WITH CHECK (true);
 
-DROP POLICY IF EXISTS "Public access lyrics" ON public.lyrics;
-CREATE POLICY "Public access lyrics" ON public.lyrics FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Public access media_files" ON public.media_files;
+CREATE POLICY "Public access media_files" ON public.media_files FOR ALL USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Public access jobs" ON public.jobs;
 CREATE POLICY "Public access jobs" ON public.jobs FOR ALL USING (true) WITH CHECK (true);
 
-DROP POLICY IF EXISTS "Public access song_structures" ON public.song_structures;
-CREATE POLICY "Public access song_structures" ON public.song_structures FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Public access job_stages" ON public.job_stages;
+CREATE POLICY "Public access job_stages" ON public.job_stages FOR ALL USING (true) WITH CHECK (true);
 
-DROP POLICY IF EXISTS "Public access review_items" ON public.review_items;
-CREATE POLICY "Public access review_items" ON public.review_items FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Public access subtitles" ON public.subtitles;
+CREATE POLICY "Public access subtitles" ON public.subtitles FOR ALL USING (true) WITH CHECK (true);
 
-DROP POLICY IF EXISTS "Public access review_history" ON public.review_history;
-CREATE POLICY "Public access review_history" ON public.review_history FOR ALL USING (true) WITH CHECK (true);
-
--- 12. HƯỚNG DẪN TẠO STORAGE BUCKETS TRÊN SUPABASE DASHBOARD:
--- Bạn vào mục 'Storage' -> 'New Bucket' và tạo 3 bucket sau (Bật 'Public bucket'):
--- 1. audio-inputs   (Chứa file audio gốc tải lên từ web hoặc YouTube)
--- 2. audio-stems    (Chứa vocals.wav và no_vocals.wav sau khi GPU tách xong)
--- 3. video-exports  (Chứa video MP4 karaoke hoàn chỉnh đã xuất)
-
+-- LƯU Ý CHO STORAGE
+-- Bạn cần tạo bucket 'projects' trên Supabase Dashboard và thiết lập thành Public.
