@@ -85,7 +85,7 @@ export function ProjectPage() {
   if (!project) return <div className="text-white p-8">Loading...</div>;
 
   return (
-    <div className="p-8 pt-20 bg-gray-900 min-h-screen text-white flex flex-col md:flex-row gap-8">
+    <div className="p-8 bg-gray-900 min-h-screen text-white flex flex-col md:flex-row gap-8">
       {/* Left Panel: Video & Controls */}
       <div className="w-full md:w-1/2 flex flex-col gap-4">
         <h1 className="text-2xl font-bold">{project.name}</h1>
