@@ -12,6 +12,8 @@ interface InspectorPanelProps {
   onModelPresetChange: (preset: ModelPreset) => void;
   onLineChange: (lineId: string, patch: Partial<LyricLine>) => void;
   onWordChange: (lineId: string, wordId: string, patch: Partial<LyricWord>) => void;
+  onAddWord: (lineId: string, afterWordId: string) => void;
+  onDeleteWord: (lineId: string, wordId: string) => void;
   onSelectWord: (wordId: string) => void;
   onPlayWord: (word: LyricWord) => void;
   onToggleLock: (lineId: string) => void;
@@ -51,6 +53,8 @@ export function InspectorPanel({
   onModelPresetChange,
   onLineChange,
   onWordChange,
+  onAddWord,
+  onDeleteWord,
   onSelectWord,
   onPlayWord,
   onToggleLock,
@@ -174,15 +178,25 @@ export function InspectorPanel({
             ))}
           </div>
           {word ? (
-            <label className="field-label full-width">
-              <span>Nội dung tiếng</span>
-              <input
-                type="text"
-                value={word.word}
-                disabled={line.locked}
-                onChange={(event) => onWordChange(line.id, word.id, { word: event.target.value, review_required: true, review_reasons: ['unaligned_text'] })}
-              />
-            </label>
+            <div className="word-edit-group" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
+              <label className="field-label full-width">
+                <span>Nội dung tiếng</span>
+                <input
+                  type="text"
+                  value={word.word}
+                  disabled={line.locked}
+                  onChange={(event) => onWordChange(line.id, word.id, { word: event.target.value, review_required: true, review_reasons: ['unaligned_text'] })}
+                />
+              </label>
+              <div className="button-row compact">
+                <button type="button" disabled={line.locked} onClick={() => onAddWord(line.id, word.id)} style={{ color: 'var(--success)' }}>
+                  + Thêm chữ
+                </button>
+                <button type="button" disabled={line.locked} onClick={() => onDeleteWord(line.id, word.id)} style={{ color: 'var(--danger)' }}>
+                  - Xóa chữ này
+                </button>
+              </div>
+            </div>
           ) : null}
         </div>
 

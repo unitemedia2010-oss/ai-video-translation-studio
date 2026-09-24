@@ -233,6 +233,60 @@ export function EditorPage() {
     }));
   }, [commit]);
 
+  const addLine = useCallback((afterLineId: string) => {
+    commit((document) => {
+      const idx = document.lines.findIndex(l => l.id === afterLineId);
+      if (idx === -1) return document;
+      const newLine: LyricLine = {
+        id: `line-${crypto.randomUUID()}`,
+        start: null,
+        end: null,
+        text: 'Chữ mới',
+        locked: false,
+        review_required: true,
+        review_reasons: ['unaligned_text'],
+        words: [{ id: `word-${crypto.randomUUID()}`, word: 'Chữ', start: null, end: null, review_required: true, review_reasons: ['unaligned_text'] }, { id: `word-${crypto.randomUUID()}`, word: 'mới', start: null, end: null, review_required: true, review_reasons: ['unaligned_text'] }]
+      };
+      const newLines = [...document.lines];
+      newLines.splice(idx + 1, 0, newLine);
+      return { ...document, lines: newLines, canonical_text: updateCanonicalLine(document.canonical_text, newLines, newLine.id, newLine.text) };
+    });
+  }, [commit]);
+
+  const deleteLine = useCallback((lineId: string) => {
+    commit((document) => {
+      const newLines = document.lines.filter(l => l.id !== lineId);
+      return { ...document, lines: newLines };
+    });
+  }, [commit]);
+
+  const addWord = useCallback((lineId: string, afterWordId: string) => {
+    commit((document) => {
+      const lineIdx = document.lines.findIndex(l => l.id === lineId);
+      if (lineIdx === -1 || document.lines[lineIdx].locked) return document;
+      const line = document.lines[lineIdx];
+      const wordIdx = line.words.findIndex(w => w.id === afterWordId);
+      if (wordIdx === -1) return document;
+      const newWords = [...line.words];
+      newWords.splice(wordIdx + 1, 0, { id: `word-${crypto.randomUUID()}`, word: '...', start: null, end: null, review_required: true, review_reasons: ['unaligned_text'] });
+      const newLines = [...document.lines];
+      newLines[lineIdx] = syncLineText({ ...line, words: newWords }, newWords.map(w => w.word).join(' '));
+      return { ...document, lines: newLines, canonical_text: updateCanonicalLine(document.canonical_text, newLines, lineId, newLines[lineIdx].text) };
+    });
+  }, [commit]);
+
+  const deleteWord = useCallback((lineId: string, wordId: string) => {
+    commit((document) => {
+      const lineIdx = document.lines.findIndex(l => l.id === lineId);
+      if (lineIdx === -1 || document.lines[lineIdx].locked) return document;
+      const line = document.lines[lineIdx];
+      const newWords = line.words.filter(w => w.id !== wordId);
+      const newLines = [...document.lines];
+      newLines[lineIdx] = syncLineText({ ...line, words: newWords }, newWords.map(w => w.word).join(' '));
+      return { ...document, lines: newLines, canonical_text: updateCanonicalLine(document.canonical_text, newLines, lineId, newLines[lineIdx].text) };
+    });
+  }, [commit]);
+
   const toggleLock = useCallback((lineId: string) => {
     commit((document) => ({ ...document, lines: document.lines.map((line) => line.id === lineId ? { ...line, locked: !line.locked } : line) }));
   }, [commit]);
@@ -426,6 +480,8 @@ export function EditorPage() {
             onSeek={seekTimeline}
             onTextChange={changeLineText}
             onToggleLock={toggleLock}
+            onAddLine={addLine}
+            onDeleteLine={deleteLine}
             onReplaceAllLyrics={(newText) => void runAlignment(undefined, newText)}
           />
         </div>
@@ -499,6 +555,8 @@ export function EditorPage() {
             onModelPresetChange={setModelPreset}
             onLineChange={changeLine}
             onWordChange={changeWord}
+            onAddWord={addWord}
+            onDeleteWord={deleteWord}
             onSelectWord={setSelectedWordId}
             onPlayWord={(word) => { if (word.start !== null && word.end !== null) timelineRef.current?.playSegment(word.start, word.end); }}
             onToggleLock={toggleLock}
