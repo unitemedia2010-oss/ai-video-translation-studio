@@ -1,4 +1,4 @@
-﻿import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import type { LyricLine } from '../types';
 import { formatClock, getReviewReasons } from '../utils/lyrics';
 
@@ -36,11 +36,11 @@ export const LyricsPanel = memo(function LyricsPanel({
   }, [selectedLineId]);
 
   return (
-    <section className="studio-panel lyrics-panel" aria-label="Danh sÃ¡ch lá»i bÃ i hÃ¡t">
+    <section className="studio-panel lyrics-panel" aria-label="Danh sách lời bài hát">
       <div className="panel-heading">
         <div>
-          <span className="eyebrow">Báº¢N Lá»œI CHUáº¨N</span>
-          <h2>Lá»i bÃ i hÃ¡t</h2>
+          <span className="eyebrow">BẢN LỜI CHUẨN</span>
+          <h2>Lời bài hát</h2>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           {onReplaceAllLyrics && (
@@ -52,12 +52,12 @@ export const LyricsPanel = memo(function LyricsPanel({
                 setReplaceText(lines.map((l) => l.text).join('\n'));
                 setShowReplaceModal(true);
               }}
-              title="DÃ¡n hoáº·c cáº­p nháº­t láº¡i toÃ n bá»™ lá»i bÃ i hÃ¡t"
+              title="Dán hoặc cập nhật lại toàn bộ lời bài hát"
             >
-              ðŸ“ Äá»•i lá»i
+              📝 Đổi lời
             </button>
           )}
-          <span className="count-pill">{lines.length} cÃ¢u</span>
+          <span className="count-pill">{lines.length} câu</span>
         </div>
       </div>
       <div className="lyrics-list">
@@ -77,7 +77,7 @@ export const LyricsPanel = memo(function LyricsPanel({
                 type="button"
                 disabled={line.start === null}
                 onClick={(event) => { event.stopPropagation(); if (line.start !== null) onSeek(line.start); }}
-                aria-label={`Nghe tá»« ${formatClock(line.start, true)}`}
+                aria-label={`Nghe từ ${formatClock(line.start, true)}`}
               >
                 <span>{String(index + 1).padStart(2, '0')}</span>
                 <time>{formatClock(line.start, true)}</time>
@@ -89,31 +89,45 @@ export const LyricsPanel = memo(function LyricsPanel({
                 onFocus={() => onSelect(line.id)}
                 onClick={(event) => event.stopPropagation()}
                 onChange={(event) => onTextChange(line.id, event.target.value)}
-                aria-label={`Ná»™i dung cÃ¢u ${index + 1}`}
+                aria-label={`Nội dung câu ${index + 1}`}
               />
               <div className="line-meta">
                 {reasons.length > 0 ? (
-                  <span className="review-chip" title={reasons.join(' Â· ')}>âš  Cáº§n kiá»ƒm tra</span>
+                  <span className="review-chip" title={reasons.join(' · ')}>⚠ Cần kiểm tra</span>
                 ) : (
-                  <span className="ok-chip">ÄÃ£ cÃ³ nhá»‹p</span>
+                  <span className="ok-chip">Đã có nhịp</span>
                 )}
                 <div style={{ flex: 1 }} />
-                <button type="button" className="icon-button tiny" onClick={(event) => { event.stopPropagation(); onAddLine(line.id); }} title="Thêm dòng bên du?i">?</button>
-                <button type="button" className="icon-button tiny" onClick={(event) => { event.stopPropagation(); onDeleteLine(line.id); }} title="Xóa dòng này">?</button>
+                <button
+                  type="button"
+                  className="icon-button tiny"
+                  onClick={(event) => { event.stopPropagation(); onAddLine(line.id); }}
+                  title="Thêm dòng bên dưới"
+                >
+                  ➕
+                </button>
+                <button
+                  type="button"
+                  className="icon-button tiny"
+                  onClick={(event) => { event.stopPropagation(); onDeleteLine(line.id); }}
+                  title="Xóa dòng này"
+                >
+                  ❌
+                </button>
                 <button
                   type="button"
                   className={`icon-button tiny ${line.locked ? 'active' : ''}`}
                   onClick={(event) => { event.stopPropagation(); onToggleLock(line.id); }}
-                  title={line.locked ? 'Má»Ÿ khÃ³a cÃ¢u' : 'KhÃ³a cÃ¢u Ä‘Ã£ sá»­a'}
-                  aria-label={line.locked ? 'Má»Ÿ khÃ³a cÃ¢u' : 'KhÃ³a cÃ¢u'}
+                  title={line.locked ? 'Mở khóa câu' : 'Khóa câu đã sửa'}
+                  aria-label={line.locked ? 'Mở khóa câu' : 'Khóa câu'}
                 >
-                  {line.locked ? 'ðŸ”’' : 'ðŸ”“'}
+                  {line.locked ? '🔒' : '🔓'}
                 </button>
               </div>
             </div>
           );
         })}
-        {lines.length === 0 ? <div className="empty-panel">ChÆ°a cÃ³ lá»i. HÃ£y dÃ¡n lyric rá»“i cÄƒn láº¡i toÃ n bÃ i.</div> : null}
+        {lines.length === 0 ? <div className="empty-panel">Chưa có lời. Hãy dán lyric rồi căn lại toàn bài.</div> : null}
       </div>
 
       {showReplaceModal ? (
@@ -121,23 +135,23 @@ export const LyricsPanel = memo(function LyricsPanel({
           <div className="bg-stone-900 border border-stone-800 rounded-2xl w-full max-w-xl p-6 shadow-2xl flex flex-col gap-4 text-stone-100">
             <div className="flex items-center justify-between border-b border-stone-800 pb-3">
               <div>
-                <span className="text-[11px] font-bold tracking-widest text-amber-500 uppercase">Cáº¬P NHáº¬T Lá»œI BÃ€I HÃT</span>
-                <h3 className="text-lg font-bold">DÃ¡n báº£n lá»i chuáº©n má»›i</h3>
+                <span className="text-[11px] font-bold tracking-widest text-amber-500 uppercase">CẬP NHẬT LỜI BÀI HÁT</span>
+                <h3 className="text-lg font-bold">Dán bản lời chuẩn mới</h3>
               </div>
-              <button type="button" onClick={() => setShowReplaceModal(false)} className="text-stone-400 hover:text-white text-xl">âœ•</button>
+              <button type="button" onClick={() => setShowReplaceModal(false)} className="text-stone-400 hover:text-white text-xl">✕</button>
             </div>
             <p className="text-xs text-stone-400">
-              DÃ¡n toÃ n bá»™ lá»i bÃ i hÃ¡t vÃ o Ä‘Ã¢y (má»—i cÃ¢u má»™t dÃ²ng). Nháº¡c vÃ  giá»ng hÃ¡t Ä‘Ã£ Ä‘Æ°á»£c tÃ¡ch sáºµn nÃªn quÃ¡ trÃ¬nh cÄƒn láº¡i lá»i má»›i sáº½ hoÃ n táº¥t chá»‰ trong 1 giÃ¢y!
+              Dán toàn bộ lời bài hát vào đây (mỗi câu một dòng). Nhạc và giọng hát đã được tách sẵn nên quá trình căn lại lời mới sẽ hoàn tất chỉ trong 1 giây!
             </p>
             <textarea
               className="w-full h-64 p-3 bg-stone-950 border border-stone-700 rounded-xl text-sm font-sans text-stone-200 focus:border-amber-500 focus:outline-none resize-none leading-relaxed"
-              placeholder="DÃ¡n toÃ n bá»™ lá»i bÃ i hÃ¡t táº¡i Ä‘Ã¢y..."
+              placeholder="Dán toàn bộ lời bài hát tại đây..."
               value={replaceText}
               onChange={(e) => setReplaceText(e.target.value)}
             />
             <div className="flex items-center justify-between pt-2">
               <span className="text-xs text-stone-500">
-                {replaceText.split(/\r?\n/).filter((l) => l.trim()).length} cÃ¢u Â· {replaceText.trim() ? replaceText.trim().split(/\s+/).length : 0} tiáº¿ng
+                {replaceText.split(/\r?\n/).filter((l) => l.trim()).length} câu · {replaceText.trim() ? replaceText.trim().split(/\s+/).length : 0} tiếng
               </span>
               <div className="flex gap-2">
                 <button
@@ -145,7 +159,7 @@ export const LyricsPanel = memo(function LyricsPanel({
                   onClick={() => setShowReplaceModal(false)}
                   className="px-4 py-2 rounded-xl text-xs font-semibold text-stone-300 hover:bg-stone-800"
                 >
-                  Há»§y
+                  Hủy
                 </button>
                 <button
                   type="button"
@@ -156,7 +170,7 @@ export const LyricsPanel = memo(function LyricsPanel({
                   }}
                   className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 text-xs font-bold shadow-lg disabled:opacity-50 transition-colors"
                 >
-                  âœ“ CÄƒn nhá»‹p láº¡i ngay
+                  ✓ Căn nhịp lại ngay
                 </button>
               </div>
             </div>
@@ -166,4 +180,3 @@ export const LyricsPanel = memo(function LyricsPanel({
     </section>
   );
 });
-
