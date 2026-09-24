@@ -74,6 +74,28 @@ export const LyricsEditor: React.FC<Props> = ({ lyrics, onChange }) => {
     onChange({ ...lyrics, lines: newLines });
   };
 
+  const addWord = (lineIndex: number, wordIndex: number) => {
+    const newLines = [...lyrics.lines];
+    const newWords = [...newLines[lineIndex].words];
+    newWords.splice(wordIndex + 1, 0, {
+      id: `word-${crypto.randomUUID()}`,
+      word: '...',
+      start: null,
+      end: null,
+      review_required: true,
+      review_reasons: ['unaligned_text']
+    });
+    newLines[lineIndex] = { ...newLines[lineIndex], words: newWords };
+    onChange({ ...lyrics, lines: newLines });
+  };
+
+  const deleteWord = (lineIndex: number, wordIndex: number) => {
+    const newLines = [...lyrics.lines];
+    const newWords = newLines[lineIndex].words.filter((_, i) => i !== wordIndex);
+    newLines[lineIndex] = { ...newLines[lineIndex], words: newWords };
+    onChange({ ...lyrics, lines: newLines });
+  };
+
   return (
     <div className="flex-1 overflow-auto rounded-xl">
       <table className="w-full text-left text-sm whitespace-nowrap">
@@ -127,7 +149,7 @@ export const LyricsEditor: React.FC<Props> = ({ lyrics, onChange }) => {
                     />
                   </td>
                   <td className="px-6 py-3">
-                    <div className="flex gap-2 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex gap-2 justify-end lg:opacity-0 lg:group-hover:opacity-100 opacity-100 transition-opacity">
                       <button 
                         onClick={() => addLine(idx)} 
                         title="Thêm dòng bên dưới"
@@ -155,7 +177,25 @@ export const LyricsEditor: React.FC<Props> = ({ lyrics, onChange }) => {
                     <td colSpan={5} className="px-6 py-6">
                       <div className="flex flex-wrap gap-4 pl-12 animate-slide-up" style={{ animationDuration: '0.3s' }}>
                         {line.words.map((word, wIdx) => (
-                          <div key={wIdx} className="bg-white dark:bg-gray-800 p-3 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col gap-3 group/word hover:border-amber-500/50 hover:shadow-md transition-all">
+                          <div key={wIdx} className="relative bg-white dark:bg-gray-800 p-3 pt-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col gap-3 group/word hover:border-amber-500/50 hover:shadow-md transition-all">
+                            {/* Action Buttons */}
+                            <div className="absolute top-1.5 right-1.5 flex gap-1 lg:opacity-0 lg:group-hover/word:opacity-100 opacity-100 transition-opacity">
+                              <button 
+                                onClick={() => addWord(idx, wIdx)}
+                                title="Thêm từ phía sau"
+                                className="w-5 h-5 flex items-center justify-center rounded bg-emerald-100 text-emerald-600 hover:bg-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-400 dark:hover:bg-emerald-500/40"
+                              >
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
+                              </button>
+                              <button 
+                                onClick={() => deleteWord(idx, wIdx)}
+                                title="Xóa từ này"
+                                className="w-5 h-5 flex items-center justify-center rounded bg-red-100 text-red-600 hover:bg-red-200 dark:bg-red-500/20 dark:text-red-400 dark:hover:bg-red-500/40"
+                              >
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+                              </button>
+                            </div>
+                            
                             <input 
                               type="text" 
                               value={word.word}
