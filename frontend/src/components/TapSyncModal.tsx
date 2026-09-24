@@ -7,6 +7,7 @@ interface TapSyncModalProps {
   songId: string;
   lyrics: LyricsData;
   initialLineId?: string;
+  singleLineMode?: boolean;
   onApply: (updatedLyrics: LyricsData) => void;
   onClose: () => void;
 }
@@ -24,6 +25,7 @@ export const TapSyncModal: React.FC<TapSyncModalProps> = ({
   songId,
   lyrics,
   initialLineId,
+  singleLineMode = false,
   onApply,
   onClose,
 }) => {
@@ -39,7 +41,8 @@ export const TapSyncModal: React.FC<TapSyncModalProps> = ({
   const flatWords = useMemo<FlatWord[]>(() => {
     const list: FlatWord[] = [];
     lyrics.lines.forEach((line, lineIdx) => {
-      if (line.locked) return;
+      if (singleLineMode && line.id !== initialLineId) return;
+      if (!singleLineMode && line.locked) return;
       line.words.forEach((w, wordIdx) => {
         list.push({
           lineIndex: lineIdx,

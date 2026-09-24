@@ -15,6 +15,7 @@ interface InspectorPanelProps {
   onAddWord: (lineId: string, afterWordId: string) => void;
   onDeleteWord: (lineId: string, wordId: string) => void;
   onSelectWord: (wordId: string) => void;
+  onTapSyncLine: (lineId: string) => void;
   onPlayWord: (word: LyricWord) => void;
   onToggleLock: (lineId: string) => void;
   onNudge: (amount: number) => void;
@@ -56,6 +57,7 @@ export function InspectorPanel({
   onAddWord,
   onDeleteWord,
   onSelectWord,
+  onTapSyncLine,
   onPlayWord,
   onToggleLock,
   onNudge,
@@ -101,6 +103,18 @@ export function InspectorPanel({
               onChange={(value) => word ? onWordChange(line.id, word.id, { end: value }) : onLineChange(line.id, { end: value })}
             />
           </div>
+          {!word && (
+            <div className="button-row compact">
+              <button
+                type="button"
+                disabled={line.locked}
+                onClick={() => onTapSyncLine(line.id)}
+                style={{ backgroundColor: 'var(--accent)', color: '#000', fontWeight: 'bold' }}
+              >
+                Gõ nhịp riêng câu này (Space)
+              </button>
+            </div>
+          )}
           <div className="button-row compact">
             <button type="button" disabled={line.locked} onClick={() => onSetBoundary('start')}>Đặt đầu tại con trỏ</button>
             <button type="button" disabled={line.locked} onClick={() => onSetBoundary('end')}>Đặt cuối tại con trỏ</button>

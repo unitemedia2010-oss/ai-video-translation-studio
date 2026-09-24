@@ -82,6 +82,7 @@ export function EditorPage() {
   const [exportJob, setExportJob] = useState<ExportJob>(EMPTY_EXPORT);
   const [mobileTab, setMobileTab] = useState<MobileTab>('preview');
   const [showTapSync, setShowTapSync] = useState(false);
+  const [tapSyncMode, setTapSyncMode] = useState<'all' | 'single'>('all');
 
   useEffect(() => {
     aliveRef.current = true;
@@ -449,7 +450,7 @@ export function EditorPage() {
             type="button"
             className="secondary-button"
             style={{ color: 'var(--accent)', borderColor: 'var(--accent)', fontWeight: 600 }}
-            onClick={() => { timelineRef.current?.pause(); setShowTapSync(true); }}
+            onClick={() => { timelineRef.current?.pause(); setTapSyncMode('all'); setShowTapSync(true); }}
             title="Gõ nhịp phím Space theo bài hát (Tap-to-sync)"
           >
             ⌨ Gõ nhịp (Space)
@@ -558,6 +559,11 @@ export function EditorPage() {
             onAddWord={addWord}
             onDeleteWord={deleteWord}
             onSelectWord={setSelectedWordId}
+            onTapSyncLine={(lineId) => {
+              if (lineId !== selectedLineId) selectLine(lineId);
+              setTapSyncMode('single');
+              setShowTapSync(true);
+            }}
             onPlayWord={(word) => { if (word.start !== null && word.end !== null) timelineRef.current?.playSegment(word.start, word.end); }}
             onToggleLock={toggleLock}
             onNudge={nudgeSelected}
@@ -593,6 +599,7 @@ export function EditorPage() {
           songId={songId}
           lyrics={lyrics}
           initialLineId={selectedLineId}
+          singleLineMode={tapSyncMode === 'single'}
           onApply={(updatedLyrics) => {
             commit(() => updatedLyrics);
             setNotice('Đã cập nhật mốc nhịp mới từ công cụ Gõ nhịp!');
